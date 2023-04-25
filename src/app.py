@@ -99,13 +99,12 @@ def fetch_prediction_and_explanation() -> None:
     except Exception as e:
         error_message = f"Model prediction failed :no_entry_sign:  \n" f"{e}"
         st.error(error_message)
-    # try:
-    if True:
+    try:
         with st.spinner(text="Fetching model explanation..."):
             st.session_state["explanation"] = st.session_state["explainer"].explain()
-    # except Exception as e:
-    #     error_message = f"Model explanation failed :no_entry_sign:  \n" f"{e}"
-    #     st.error(error_message)
+    except Exception as e:
+        error_message = f"Model explanation failed :no_entry_sign:  \n" f"{e}"
+        st.error(error_message)
 
 
 def show_explanation() -> None:
