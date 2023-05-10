@@ -206,7 +206,7 @@ def explain_page() -> None:
         st.error("Please review the model checkpoint and the input instance :no_entry_sign:")
         return
 
-    method = st.selectbox("Explanation Tool", ["LRP", "LIME"])
+    method = st.selectbox("Explanation Tool", ["LRP", "LIME", "SHAP"])
     st.session_state["explainer"] = create_explainer(
         get_instance_type(st.session_state["instance"]), method
     )()(st.session_state["model"], st.session_state["instance"])

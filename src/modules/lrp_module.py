@@ -114,8 +114,6 @@ class LRPImageExplainer(ImageExplainer):
         else:
             targets = self.options["labels"]
 
-        print(targets)
-
         match self.options["composite"]:
             case "EpsilonPlus":
                 composite = EpsilonPlus()

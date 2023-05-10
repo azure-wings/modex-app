@@ -12,12 +12,12 @@ class Model:
         model = torch.load(
             checkpoint,
             map_location=torch.device(self.device),
-        )
+        ).double()
         model.eval()
         return model
 
     def predict(self, input_data: torch.Tensor) -> torch.Tensor:
-        input_data = input_data.to(self.device)
+        input_data = input_data.double().to(self.device)
         with torch.no_grad():
             output = self.model(input_data)
         return output

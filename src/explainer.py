@@ -58,6 +58,7 @@ from modules.lime_module import (
     LIMETextExplainer,
     LIMETabularExplainer,
 )
+from modules.shap_module import SHAPImageExplainer
 
 
 class ImageExplainerFactory(ExplainerFactory):
@@ -66,6 +67,9 @@ class ImageExplainerFactory(ExplainerFactory):
 
     def create_lime_explainer(self) -> LIMEImageExplainer:
         return LIMEImageExplainer
+
+    def create_shap_explainer(self) -> SHAPImageExplainer:
+        return SHAPImageExplainer
 
 
 class TextExplainerFactory(ExplainerFactory):
@@ -90,12 +94,11 @@ def create_explainer(explainer_type: str, method: str) -> Explainer:
         ("Image", "LIME"): ImageExplainerFactory().create_lime_explainer,
         ("Text", "LIME"): TextExplainerFactory().create_lime_explainer,
         ("Tabular", "LIME"): TabularExplainerFactory().create_lime_explainer,
+        ("Image", "SHAP"): ImageExplainerFactory().create_shap_explainer,
     }
 
     creator = creator_map.get((explainer_type, method))
     if creator:
         return creator
     else:
-        raise ValueError(
-            f"Invalid explainer type: {explainer_type} or method: {method}"
-        )
+        raise ValueError(f"Invalid explainer type: {explainer_type} or method: {method}")
