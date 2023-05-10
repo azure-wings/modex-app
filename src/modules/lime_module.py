@@ -112,14 +112,20 @@ class LIMEImageExplainer(ImageExplainer):
         return options, display_options
 
     def explain(self) -> List[Tuple[Image.Image, int]]:
-        batcher = lambda x: torch.stack(
-            tuple(
-                T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(T.ToTensor()(i))
-                for i in x
-            ),
-            dim=0,
-        )
-        predictor = lambda x: self.model.model(batcher(x).to(self.model.device))
+        def batcher(x: np.array) -> torch.Tensor:
+            return torch.stack(
+                tuple(
+                    T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(
+                        T.ToTensor()(i)
+                    )
+                    # self.instance.preprocess(i)
+                    for i in x
+                ),
+                dim=0,
+            )
+
+        def predictor(x: np.array) -> torch.Tensor:
+            return self.model.predict(batcher(x).to(self.model.device))
 
         explanation = LimeImageExplainer().explain_instance(
             np.array(self.instance.preview()),
