@@ -142,8 +142,8 @@ class LRPImageExplainer(ImageExplainer):
         exp_label_list = [None] * len(targets)
         for i, target in enumerate(targets):
             _, attribution = attributor(
-                self.instance.preprocess().to(self.model.device),
-                torch.eye(1000)[[target]].to(self.model.device),
+                self.instance.preprocess().double().to(self.model.device),
+                torch.eye(1000)[[target]].double().to(self.model.device),
             )
             relevance = attribution.sum(1).cpu()
             exp_label_list[i] = (
