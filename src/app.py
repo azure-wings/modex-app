@@ -38,7 +38,7 @@ def init_session_state() -> None:
             st.session_state[k] = v
 
     # Page Configs
-    st.set_page_config(page_title="Model Interpretation Dashboard", page_icon="👾")
+    st.set_page_config(page_title="Model Explainer Dashboard", page_icon="👾")
     css_config = {
         "max_width": 1100,
         "padding_top": 1,
@@ -65,7 +65,7 @@ def init_session_state() -> None:
 
 
 def title_and_menu() -> str:
-    st.write("# Model Interpretation Dashboard")
+    st.write("# Model Explainer Dashboard")
     page = option_menu(
         None,
         ["Upload", "Explain"],
@@ -108,7 +108,12 @@ def fetch_prediction_and_explanation() -> None:
 
 
 def show_explanation() -> None:
-    predicted_label = st.session_state["prediction"].argmax(1)[0].item()
+    while True:
+        try:
+            predicted_label = st.session_state["prediction"].argmax(1)[0].item()
+            break
+        except:
+            st.stop()
     target_label = st.session_state["instance"].target
 
     if type(st.session_state["explanation"][0]) is tuple:
@@ -118,6 +123,7 @@ def show_explanation() -> None:
         )
     else:
         explanation_image, explanation_label = st.session_state["explanation"], None
+
     outputs = st.columns(2)
     outputs[0].write(f'**Original {get_instance_type(st.session_state["instance"])}**')
     outputs[0].image(st.session_state["instance"].preview(), use_column_width=True)
@@ -206,7 +212,7 @@ def explain_page() -> None:
         st.error("Please review the model checkpoint and the input instance :no_entry_sign:")
         return
 
-    method = st.selectbox("Explanation Tool", ["LRP", "LIME", "SHAP"])
+    method = st.selectbox("Explanation Tool", ["LRP", "LIME", "KernelSHAP"])
     st.session_state["explainer"] = create_explainer(
         get_instance_type(st.session_state["instance"]), method
     )()(st.session_state["model"], st.session_state["instance"])
