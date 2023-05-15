@@ -58,7 +58,7 @@ from modules.lime_module import (
     LIMETextExplainer,
     LIMETabularExplainer,
 )
-from modules.shap_module import SHAPImageExplainer
+from modules.kernelshap_module import KernelSHAPImageExplainer
 
 
 class ImageExplainerFactory(ExplainerFactory):
@@ -68,8 +68,8 @@ class ImageExplainerFactory(ExplainerFactory):
     def create_lime_explainer(self) -> LIMEImageExplainer:
         return LIMEImageExplainer
 
-    def create_shap_explainer(self) -> SHAPImageExplainer:
-        return SHAPImageExplainer
+    def create_kernelshap_explainer(self) -> KernelSHAPImageExplainer:
+        return KernelSHAPImageExplainer
 
 
 class TextExplainerFactory(ExplainerFactory):
@@ -94,7 +94,7 @@ def create_explainer(explainer_type: str, method: str) -> Explainer:
         ("Image", "LIME"): ImageExplainerFactory().create_lime_explainer,
         ("Text", "LIME"): TextExplainerFactory().create_lime_explainer,
         ("Tabular", "LIME"): TabularExplainerFactory().create_lime_explainer,
-        ("Image", "SHAP"): ImageExplainerFactory().create_shap_explainer,
+        ("Image", "KernelSHAP"): ImageExplainerFactory().create_kernelshap_explainer,
     }
 
     creator = creator_map.get((explainer_type, method))
