@@ -18,6 +18,8 @@ import shap
 
 import sys, os
 import io
+import warnings
+
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from explainer import ImageExplainer, TextExplainer, TabularExplainer
@@ -28,7 +30,7 @@ OptionKey: TypeAlias = str
 OptionValue: TypeAlias = int | str | bool
 
 
-class SHAPImageExplainer(ImageExplainer):
+class KernelSHAPImageExplainer(ImageExplainer):
     def __init__(self, model: Model, instance: Instance):
         super().__init__(model, instance)
 
@@ -63,7 +65,7 @@ class SHAPImageExplainer(ImageExplainer):
         options["nsamples"] = st.number_input(
             "**nsamples**: Maximum number of features present in the explanation",
             min_value=1,
-            value=1000,
+            value=100,
             step=1,
         )
 
@@ -99,16 +101,16 @@ class SHAPImageExplainer(ImageExplainer):
         original_img_arr = np.array(self.instance.preview())
 
         # https://h1ros.github.io/posts/explain-the-prediction-for-imagenet-using-shap/
-        def segment_image() -> np.array:
+        def segment_image(img_arr: np.array) -> np.array:
             segments_slic = slic(
-                original_img_arr,
+                img_arr,
                 n_segments=self.options["n_segments"],
                 compactness=self.options["compactness"],
                 sigma=self.options["sigma"],
             )
             return segments_slic
 
-        segments_slic = segment_image()
+        segments_slic = segment_image(original_img_arr)
 
         def batcher(x: np.array) -> torch.Tensor:
             return torch.stack(
@@ -153,9 +155,11 @@ class SHAPImageExplainer(ImageExplainer):
             return out
 
         explainer = shap.KernelExplainer(predict_coalition, np.zeros((1, 50)))
-        shap_values: np.array = explainer.shap_values(
-            np.ones((1, 50)), nsamples=self.options["nsamples"]
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            shap_values: np.array = explainer.shap_values(
+                np.ones((1, 50)), nsamples=self.options["nsamples"]
+            )
 
         colors = []
         for l in np.linspace(1.0, 0.1, 256):
@@ -169,13 +173,29 @@ class SHAPImageExplainer(ImageExplainer):
         exp_label_list = [None] * len(targets)
 
         for i, target in enumerate(targets):
-            buf = io.BytesIO()
             m = fill_segmentation(shap_values[target][0], segments_slic)
-            plt.axis("off")
-            plt.imshow(mark_boundaries(original_img_arr, segments_slic))
-            plt.imshow(m, cmap=my_cmap, vmin=-max_val, vmax=max_val)
-            plt.savefig(buf, format="png", transparent=True, bbox_inches="tight")
-            plt.clf()
-            exp_label_list[i] = (Image.open(buf), target)
+            background = Image.fromarray(
+                (mark_boundaries(original_img_arr / 255, segments_slic) * 255).astype(np.uint8)
+            ).convert("RGBA")
+            shap_colormap = plt.cm.seismic_r(plt.Normalize(vmin=-max_val, vmax=max_val)(m)) * 255
+
+            # Set white colormaps transparent, and vivid colormaps opaque
+            avg_brightness = np.sum(shap_colormap[:, :, :3], axis=2) / 3
+            # Modify the alpha channel based on the brightness of each pixel
+            high_brightness_all_channels = np.all(shap_colormap[:, :, :3] > 250, axis=2)
+            shap_colormap[high_brightness_all_channels, 3] = 0
+
+            high_brightness_some_channels = (
+                np.any(shap_colormap[:, :, :3] > 127, axis=2) & ~high_brightness_all_channels
+            )
+            shap_colormap[high_brightness_some_channels, 3] = (
+                0.5 + 0.5 * np.tanh(30 - 31 * avg_brightness[high_brightness_some_channels] / 255)
+            ) * 255
+            shap_colormap[:, :, 3] = np.clip(shap_colormap[:, :, 3], 0, 200)
+
+            shap_colormap = Image.fromarray(shap_colormap.astype(np.uint8)).convert("RGBA")
+            background.paste(shap_colormap, (0, 0), shap_colormap)
+
+            exp_label_list[i] = (background, target)
 
         return exp_label_list
