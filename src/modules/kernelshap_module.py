@@ -5,7 +5,7 @@ from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
-from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.colors import ListedColormap
 
 import torch
 import torch.nn as nn
@@ -17,7 +17,7 @@ from skimage.segmentation import slic, mark_boundaries
 import shap
 
 import sys, os
-import io
+import logging
 import warnings
 
 
@@ -33,6 +33,7 @@ OptionValue: TypeAlias = int | str | bool
 class KernelSHAPImageExplainer(ImageExplainer):
     def __init__(self, model: Model, instance: Instance):
         super().__init__(model, instance)
+        logging.getLogger("shap").disabled = True
 
     def set_options(
         self,
@@ -112,7 +113,7 @@ class KernelSHAPImageExplainer(ImageExplainer):
 
         segments_slic = segment_image(original_img_arr)
 
-        def batcher(x: np.array) -> torch.Tensor:
+        def batcher(x: List[Image.Image]) -> torch.Tensor:
             return torch.stack(
                 tuple(
                     T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(
@@ -138,15 +139,19 @@ class KernelSHAPImageExplainer(ImageExplainer):
                     if coalition[i, j] == 0:
                         out[i][segmentation == j, :] = background
 
-            return batcher(out)
+            pil_imgs = [Image.fromarray(np.uint8(out[i])) for i in range(out.shape[0])]
+            return batcher(pil_imgs)
 
         def predict_coalition(coalition: np.array) -> torch.Tensor:
-            return (
-                self.model.predict(mask_image(coalition, segments_slic, original_img_arr).double())
-                .cpu()
-                .detach()
-                .numpy()
+            prediction = self.model.predict(
+                mask_image(coalition, segments_slic, original_img_arr).double()
             )
+
+            # Apply softmax if prediction is logits
+            if torch.mean(torch.abs(torch.sum(prediction, dim=1) - 1)) > 1e-5:
+                prediction = F.softmax(prediction, dim=1)
+
+            return prediction.cpu().detach().numpy()
 
         def fill_segmentation(shap_values: np.array, segmentation: np.array) -> np.array:
             out = np.zeros(segmentation.shape)
@@ -154,20 +159,23 @@ class KernelSHAPImageExplainer(ImageExplainer):
                 out[segmentation == i] = shap_values[i]
             return out
 
-        explainer = shap.KernelExplainer(predict_coalition, np.zeros((1, 50)))
+        explainer = shap.KernelExplainer(
+            predict_coalition, np.zeros((1, self.options["n_segments"]))
+        )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             shap_values: np.array = explainer.shap_values(
-                np.ones((1, 50)), nsamples=self.options["nsamples"]
+                np.ones((1, self.options["n_segments"])), nsamples=self.options["nsamples"]
             )
 
-        colors = []
-        for l in np.linspace(1.0, 0.1, 256):
-            colors.append((245 / 255, 39 / 255, 87 / 255, l))
-        for l in np.linspace(0.1, 1.0, 256):
-            colors.append((24 / 255, 196 / 255, 93 / 255, l))
-        my_cmap = LinearSegmentedColormap.from_list("shap", colors)
+        # Get the original seismic colormap
+        cmap_data = plt.cm.seismic_r(np.arange(plt.cm.seismic_r.N))
+        # Swap the blue and green channels
+        cmap_data[:, [1, 2]] = cmap_data[:, [2, 1]]
+        # Create the modified colormap
+        seismic_g = ListedColormap(cmap_data)
 
+        # For colourmap normalisation
         max_val = np.max([np.max(np.abs(shap_values[i][:, :-1])) for i in range(len(shap_values))])
 
         exp_label_list = [None] * len(targets)
@@ -175,9 +183,11 @@ class KernelSHAPImageExplainer(ImageExplainer):
         for i, target in enumerate(targets):
             m = fill_segmentation(shap_values[target][0], segments_slic)
             background = Image.fromarray(
-                (mark_boundaries(original_img_arr / 255, segments_slic) * 255).astype(np.uint8)
+                (
+                    mark_boundaries(original_img_arr / 255, segments_slic, color=(1, 1, 1)) * 255
+                ).astype(np.uint8)
             ).convert("RGBA")
-            shap_colormap = plt.cm.seismic_r(plt.Normalize(vmin=-max_val, vmax=max_val)(m)) * 255
+            shap_colormap = seismic_g(plt.Normalize(vmin=-max_val, vmax=max_val)(m)) * 255
 
             # Set white colormaps transparent, and vivid colormaps opaque
             avg_brightness = np.sum(shap_colormap[:, :, :3], axis=2) / 3
