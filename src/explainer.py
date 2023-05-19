@@ -1,8 +1,11 @@
 from typing import Dict, TypeAlias, Any
 from abc import ABC, abstractmethod
 
+import streamlit as st
+
 from model import Model
 from instance import Instance
+
 
 OptionKey: TypeAlias = str
 OptionValue: TypeAlias = int | str | bool
@@ -12,10 +15,14 @@ class Explainer(ABC):
     def __init__(self, model: Model, instance: Instance):
         self.model = model
         self.instance = instance
-        self.options = {}
+        self.options = dict()
 
     @abstractmethod
-    def set_options(self) -> Dict[OptionKey, OptionValue]:
+    def set_base_options(self) -> Dict[OptionKey, OptionValue]:
+        pass
+
+    @abstractmethod
+    def set_explainer_options(self) -> Dict[OptionKey, OptionValue]:
         pass
 
     @abstractmethod
@@ -26,6 +33,36 @@ class Explainer(ABC):
 class ImageExplainer(Explainer):
     def __init__(self, model: Model, instance: Instance):
         super().__init__(model, instance)
+
+    def set_base_options(self) -> Dict[OptionKey, OptionValue]:
+        options = self.options
+
+        label_generation = st.radio(
+            "Choose how the labels for explanation would be generated",
+            ["Automatic pseudolabel generation", "Manual label designation"],
+            horizontal=True,
+        )
+        if label_generation == "Manual label designation":
+            options["labels"] = [
+                int(i)
+                for i in st.text_input(
+                    "Labels you wish to be explained",
+                    help="Split each label with a comma",
+                ).split(",")
+            ]
+            options["top_labels"] = None
+        else:
+            options["top_labels"] = st.number_input(
+                "Number of labels (with the highest prediction probabilities) to produce explanations for",
+                min_value=1,
+                max_value=1000,
+                value=5,
+                step=1,
+            )
+
+        st.write("---")
+
+        return options
 
 
 class TextExplainer(Explainer):

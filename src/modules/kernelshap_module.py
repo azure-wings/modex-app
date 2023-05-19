@@ -34,33 +34,10 @@ class KernelSHAPImageExplainer(ImageExplainer):
         super().__init__(model, instance)
         logging.getLogger("shap").disabled = True
 
-    def set_options(
+    def set_explainer_options(
         self,
     ) -> Dict[OptionKey, OptionValue]:
-        options: Dict[OptionKey, OptionValue] = {}
-
-        label_generation = st.radio(
-            "Choose how the labels for explanation would be generated",
-            ["Automatic pseudolabel generation", "Manual label designation"],
-            horizontal=True,
-        )
-        if label_generation == "Manual label designation":
-            options["labels"] = [
-                int(i)
-                for i in st.text_input(
-                    "Labels you wish to be explained",
-                    help="Split each label with a comma",
-                ).split(",")
-            ]
-            options["top_labels"] = None
-        else:
-            options["top_labels"] = st.number_input(
-                "Number of labels (with the highest prediction probabilities) to produce explanations for",
-                min_value=1,
-                max_value=1000,
-                value=5,
-                step=1,
-            )
+        options = self.options
 
         options["nsamples"] = st.number_input(
             "**nsamples**: Maximum number of features present in the explanation",

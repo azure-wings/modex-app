@@ -29,35 +29,12 @@ OptionValue: TypeAlias = int | str | bool
 class LIMEImageExplainer(ImageExplainer):
     def __init__(self, model: Model, instance: Instance):
         super().__init__(model, instance)
-        self.display_options = {}
+        self.display_options = dict()
 
-    def set_options(
+    def set_explainer_options(
         self,
     ) -> Tuple[Dict[OptionKey, OptionValue], Dict[OptionKey, OptionValue]]:
-        options: Dict[OptionKey, OptionValue] = {}
-        display_options: Dict[OptionKey, OptionValue] = {}
-        label_generation = st.radio(
-            "Choose how the labels for explanation would be generated",
-            ["Automatic pseudolabel generation", "Manual label designation"],
-            horizontal=True,
-        )
-        if label_generation == "Manual label designation":
-            options["labels"] = [
-                int(i)
-                for i in st.text_input(
-                    "Labels you wish to be explained",
-                    help="Split each label with a comma",
-                ).split(",")
-            ]
-            options["top_labels"] = None
-        else:
-            options["top_labels"] = st.number_input(
-                "Number of labels (with the highest prediction probabilities) to produce explanations for",
-                min_value=1,
-                max_value=1000,
-                value=5,
-                step=1,
-            )
+        options, display_options = self.options, self.display_options
 
         options["num_features"] = st.number_input(
             "Maximum number of features present in the explanation",
@@ -129,9 +106,7 @@ class LIMEImageExplainer(ImageExplainer):
 
         explanation = LimeImageExplainer().explain_instance(
             np.array(self.instance.preview()),
-            lambda x: predictor(x).detach().cpu().numpy()
-            if torch.sum(predictor(x)) == 1
-            else F.softmax(predictor(x)).detach().cpu().numpy(),
+            lambda x: predictor(x).detach().cpu().numpy(),
             **self.options
         )
 

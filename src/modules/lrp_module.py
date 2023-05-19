@@ -32,30 +32,8 @@ class LRPImageExplainer(ImageExplainer):
         super().__init__(model, instance)
         self.preprocessed = self.instance.preprocess()
 
-    def set_options(self) -> Dict[OptionKey, OptionValue]:
-        options: Dict[OptionKey, OptionValue] = dict()
-        label_generation = st.radio(
-            "Choose how the labels for explanation would be generated",
-            ["Automatic pseudolabel generation", "Manual label designation"],
-            horizontal=True,
-        )
-        if label_generation == "Manual label designation":
-            options["labels"] = [
-                int(i)
-                for i in st.text_input(
-                    "Labels you wish to be explained",
-                    help="Split each label with a comma",
-                ).split(",")
-            ]
-            options["top_labels"] = None
-        else:
-            options["top_labels"] = st.number_input(
-                "Number of labels (with the highest prediction probabilities) to produce explanations for",
-                min_value=1,
-                max_value=1000,
-                value=5,
-                step=1,
-            )
+    def set_explainer_options(self) -> Dict[OptionKey, OptionValue]:
+        options: Dict[OptionKey, OptionValue] = self.options
 
         options["composite"] = st.selectbox(
             "**Composite**: Rule to use for relevance calculation",

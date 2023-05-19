@@ -226,7 +226,8 @@ def explain_page() -> None:
 
     with st.expander("Set explainer options", expanded=True):
         try:
-            options = st.session_state["explainer"].set_options()
+            st.session_state["explainer"].set_base_options()
+            st.session_state["explainer"].set_explainer_options()
         except ValueError as error:
             st.error(error.args[0])
 
