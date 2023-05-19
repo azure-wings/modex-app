@@ -110,7 +110,9 @@ def fetch_prediction_and_explanation() -> None:
 def show_explanation() -> None:
     while True:
         try:
-            predicted_label = st.session_state["prediction"].argmax(1)[0].item()
+            predicted_val, predicted_idx = torch.sort(
+                st.session_state["prediction"], descending=True
+            )
             break
         except:
             st.stop()
@@ -127,25 +129,30 @@ def show_explanation() -> None:
     outputs = st.columns(2)
     outputs[0].write(f'**Original {get_instance_type(st.session_state["instance"])}**')
     outputs[0].image(st.session_state["instance"].preview(), use_column_width=True)
-    outputs[0].write("Ground Truth Label")
-    outputs[0].code(f"{get_classification_label(target_label)}")
 
     outputs[1].write("**Explanation**")
     outputs[1].image(
         explanation_image[st.session_state["output_view_index"]], use_column_width=True
     )
+
+    outputs[0].write("Ground Truth Label")
+    outputs[0].code(f"{get_classification_label(target_label)}")
     outputs[1].write("Predicted Label")
-    if predicted_label == target_label:
-        outputs[1].code(f"{get_classification_label(predicted_label)} ✅")
+    if predicted_idx[0][0] == target_label:
+        outputs[1].code(f"{get_classification_label(predicted_idx[0][0])} ✅")
     else:
-        outputs[1].code(f"{get_classification_label(predicted_label)} 🚫")
+        outputs[1].code(f"{get_classification_label(predicted_idx[0][0])} 🚫")
 
     if explanation_label is not None:
+        assert (
+            explanation_label[st.session_state["output_view_index"]]
+            == predicted_idx[0][st.session_state["output_view_index"]]
+        )
         outputs[1].write(
             f"Current Explanation Label  ( {st.session_state['output_view_index'] + 1} / {len(st.session_state['explanation'])} )"
         )
         outputs[1].code(
-            f'{get_classification_label(explanation_label[st.session_state["output_view_index"]])}'
+            f'{get_classification_label(explanation_label[st.session_state["output_view_index"]]) + ":":<20} {predicted_val[0][st.session_state["output_view_index"]]:.5f}'
         )
 
     if len(st.session_state["explanation"]) > 1:
