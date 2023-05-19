@@ -9,7 +9,6 @@ from matplotlib.colors import ListedColormap
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torchvision.transforms as T
 import streamlit as st
 from skimage.segmentation import slic, mark_boundaries
@@ -66,7 +65,7 @@ class KernelSHAPImageExplainer(ImageExplainer):
         options["nsamples"] = st.number_input(
             "**nsamples**: Maximum number of features present in the explanation",
             min_value=1,
-            value=100,
+            value=500,
             step=1,
         )
 
@@ -146,10 +145,6 @@ class KernelSHAPImageExplainer(ImageExplainer):
             prediction = self.model.predict(
                 mask_image(coalition, segments_slic, original_img_arr).double()
             )
-
-            # Apply softmax if prediction is logits
-            if torch.mean(torch.abs(torch.sum(prediction, dim=1) - 1)) > 1e-5:
-                prediction = F.softmax(prediction, dim=1)
 
             return prediction.cpu().detach().numpy()
 
