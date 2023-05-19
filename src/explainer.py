@@ -77,16 +77,16 @@ class TabularExplainer(Explainer):
 
 class ExplainerFactory(ABC):
     @abstractmethod
-    def create_lrp_explainer(self) -> ImageExplainer:
+    def create_lrp_explainer(self) -> Explainer:
         pass
 
     @abstractmethod
-    def create_lime_explainer(self) -> TextExplainer:
+    def create_lime_explainer(self) -> Explainer:
         pass
 
-    # @abstractmethod
-    # def create_shap_explainer(self) -> TabularExplainer:
-    #     pass
+    @abstractmethod
+    def create_kernelshap_explainer(self) -> Explainer:
+        pass
 
 
 from modules.lrp_module import LRPImageExplainer
