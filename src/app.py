@@ -11,7 +11,7 @@ import torch
 from instance import Instance, create_instance, get_instance_type
 from model import Model
 from explainer import Explainer, create_explainer
-from utils import get_classification_label
+from utils.image import resize_crop, get_imagenet_classname
 
 
 def init_session_state() -> None:
@@ -113,6 +113,8 @@ def show_explanation() -> None:
             predicted_val, predicted_idx = torch.sort(
                 st.session_state["prediction"], descending=True
             )
+            predicted_val = predicted_val.squeeze().tolist()
+            predicted_idx = predicted_idx.squeeze().tolist()
             break
         except:
             st.stop()
@@ -128,7 +130,7 @@ def show_explanation() -> None:
 
     outputs = st.columns(2)
     outputs[0].write(f'**Original {get_instance_type(st.session_state["instance"])}**')
-    outputs[0].image(st.session_state["instance"].preview(), use_column_width=True)
+    outputs[0].image(resize_crop(st.session_state["instance"].image_array), use_column_width=True)
 
     outputs[1].write("**Explanation**")
     outputs[1].image(
@@ -136,23 +138,24 @@ def show_explanation() -> None:
     )
 
     outputs[0].write("Ground Truth Label")
-    outputs[0].code(f"{get_classification_label(target_label)}")
+    outputs[0].code(f"{get_imagenet_classname(target_label)}")
     outputs[1].write("Predicted Label")
-    if predicted_idx[0][0] == target_label:
-        outputs[1].code(f"{get_classification_label(predicted_idx[0][0])} ✅")
+    if predicted_idx[0] == target_label:
+        outputs[1].code(f"{get_imagenet_classname(predicted_idx[0])} ✅")
     else:
-        outputs[1].code(f"{get_classification_label(predicted_idx[0][0])} 🚫")
+        outputs[1].code(f"{get_imagenet_classname(predicted_idx[0])} 🚫")
 
     if explanation_label is not None:
         assert (
             explanation_label[st.session_state["output_view_index"]]
-            == predicted_idx[0][st.session_state["output_view_index"]]
-        )
+            == predicted_idx[st.session_state["output_view_index"]]
+        ), f"Explanation label is {explanation_label[st.session_state['output_view_index']]}, but predicton label is {predicted_idx[st.session_state['output_view_index']]}"
+
         outputs[1].write(
             f"Current Explanation Label  ( {st.session_state['output_view_index'] + 1} / {len(st.session_state['explanation'])} )"
         )
         outputs[1].code(
-            f'{get_classification_label(explanation_label[st.session_state["output_view_index"]]) + ":":<20} {predicted_val[0][st.session_state["output_view_index"]]:.5f}'
+            f'{get_imagenet_classname(explanation_label[st.session_state["output_view_index"]]) + ":":<30} {predicted_val[st.session_state["output_view_index"]]:.5f}'
         )
 
     if len(st.session_state["explanation"]) > 1:
@@ -195,7 +198,7 @@ def upload_page() -> bool:
             st.session_state["instance"] = create_instance(instance_type)(
                 instance_file, instance_target
             )
-            preview = st.session_state["instance"].preview()
+            preview = resize_crop(st.session_state["instance"].image_array)
 
             instance_expander.image(preview, caption="Input Instance Preview")
             st.session_state["instance_validity"] = True

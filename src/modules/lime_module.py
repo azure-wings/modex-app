@@ -21,6 +21,7 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from explainer import ImageExplainer, TextExplainer, TabularExplainer
 from model import Model
 from instance import Instance
+from utils.image import resize_crop, imagenet_preprocess
 
 OptionKey: TypeAlias = str
 OptionValue: TypeAlias = int | str | bool
@@ -89,25 +90,16 @@ class LIMEImageExplainer(ImageExplainer):
         return options, display_options
 
     def explain(self) -> List[Tuple[Image.Image, int]]:
-        def batcher(x: np.array) -> torch.Tensor:
-            return torch.stack(
-                tuple(
-                    T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(
-                        T.ToTensor()(i)
-                    )
-                    # self.instance.preprocess(i)
-                    for i in x
-                ),
-                dim=0,
+        def predictor(x: np.array) -> torch.Tensor:
+            return (
+                self.model.predict(imagenet_preprocess(x).to(self.model.device))
+                .detach()
+                .cpu()
+                .numpy()
             )
 
-        def predictor(x: np.array) -> torch.Tensor:
-            return self.model.predict(batcher(x).to(self.model.device))
-
         explanation = LimeImageExplainer().explain_instance(
-            np.array(self.instance.preview()),
-            lambda x: predictor(x).detach().cpu().numpy(),
-            **self.options
+            resize_crop(self.instance.image_array), predictor, **self.options
         )
 
         labels = (
@@ -120,7 +112,7 @@ class LIMEImageExplainer(ImageExplainer):
 
         return [
             (
-                Image.fromarray((mark_boundaries(image / 255.0, mask) * 255).astype(np.uint8)),
+                (mark_boundaries(image / 255.0, mask) * 255).astype(np.uint8),
                 labels[i],
             )
             for i, (image, mask) in enumerate(image_mask_list)

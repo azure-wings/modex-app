@@ -24,6 +24,7 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from explainer import ImageExplainer, TextExplainer, TabularExplainer
 from model import Model
 from instance import Instance
+from utils.image import resize_crop, imagenet_preprocess
 
 OptionKey: TypeAlias = str
 OptionValue: TypeAlias = int | str | bool
@@ -75,7 +76,7 @@ class KernelSHAPImageExplainer(ImageExplainer):
         else:
             targets = self.options["labels"]
 
-        original_img_arr = np.array(self.instance.preview())
+        original_img_arr = resize_crop(self.instance.image_array)
 
         # https://h1ros.github.io/posts/explain-the-prediction-for-imagenet-using-shap/
         def segment_image(img_arr: np.array) -> np.array:
@@ -88,17 +89,6 @@ class KernelSHAPImageExplainer(ImageExplainer):
             return segments_slic
 
         segments_slic = segment_image(original_img_arr)
-
-        def batcher(x: List[Image.Image]) -> torch.Tensor:
-            return torch.stack(
-                tuple(
-                    T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(
-                        T.ToTensor()(i)
-                    )
-                    for i in x
-                ),
-                dim=0,
-            )
 
         def mask_image(
             coalition: np.array, segmentation: np.array, image: np.array, background=None
@@ -115,8 +105,7 @@ class KernelSHAPImageExplainer(ImageExplainer):
                     if coalition[i, j] == 0:
                         out[i][segmentation == j, :] = background
 
-            pil_imgs = [Image.fromarray(np.uint8(out[i])) for i in range(out.shape[0])]
-            return batcher(pil_imgs)
+            return imagenet_preprocess(out)
 
         def predict_coalition(coalition: np.array) -> torch.Tensor:
             prediction = self.model.predict(
