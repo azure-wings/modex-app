@@ -22,6 +22,7 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from explainer import ImageExplainer
 from model import Model
 from instance import Instance
+from utils.image import resize_crop, imagenet_preprocess
 
 OptionKey: TypeAlias = str
 OptionValue: TypeAlias = int | str | bool
@@ -30,32 +31,9 @@ OptionValue: TypeAlias = int | str | bool
 class LRPImageExplainer(ImageExplainer):
     def __init__(self, model: Model, instance: Instance):
         super().__init__(model, instance)
-        self.preprocessed = self.instance.preprocess()
 
-    def set_options(self) -> Dict[OptionKey, OptionValue]:
-        options: Dict[OptionKey, OptionValue] = dict()
-        label_generation = st.radio(
-            "Choose how the labels for explanation would be generated",
-            ["Automatic pseudolabel generation", "Manual label designation"],
-            horizontal=True,
-        )
-        if label_generation == "Manual label designation":
-            options["labels"] = [
-                int(i)
-                for i in st.text_input(
-                    "Labels you wish to be explained",
-                    help="Split each label with a comma",
-                ).split(",")
-            ]
-            options["top_labels"] = None
-        else:
-            options["top_labels"] = st.number_input(
-                "Number of labels (with the highest prediction probabilities) to produce explanations for",
-                min_value=1,
-                max_value=1000,
-                value=5,
-                step=1,
-            )
+    def set_explainer_options(self) -> Dict[OptionKey, OptionValue]:
+        options: Dict[OptionKey, OptionValue] = self.options
 
         options["composite"] = st.selectbox(
             "**Composite**: Rule to use for relevance calculation",
@@ -106,9 +84,14 @@ class LRPImageExplainer(ImageExplainer):
         return options
 
     def explain(self) -> List[Image.Image]:
+        instance_preprocessed = (
+            imagenet_preprocess(self.instance.image_array).double().to(self.model.device)
+        )
+
         if self.options["top_labels"]:
             _, targets = torch.topk(
-                self.model.predict(self.instance.preprocess()), k=self.options["top_labels"]
+                self.model.predict(instance_preprocessed),
+                k=self.options["top_labels"],
             )
             targets = targets.tolist()[0]
         else:
@@ -142,7 +125,7 @@ class LRPImageExplainer(ImageExplainer):
         exp_label_list = [None] * len(targets)
         for i, target in enumerate(targets):
             _, attribution = attributor(
-                self.instance.preprocess().double().to(self.model.device),
+                instance_preprocessed.double().to(self.model.device),
                 torch.eye(1000)[[target]].double().to(self.model.device),
             )
             relevance = attribution.sum(1).cpu()

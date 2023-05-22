@@ -1,6 +1,7 @@
 from typing import Any
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 
 class Model:
@@ -20,4 +21,9 @@ class Model:
         input_data = input_data.double().to(self.device)
         with torch.no_grad():
             output = self.model(input_data)
+
+        # Apply softmax if prediction is logits
+        if torch.mean(torch.abs(torch.sum(output, dim=1) - 1), dim=0) > 1e-5:
+            output = F.softmax(output, dim=1)
+
         return output

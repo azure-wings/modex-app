@@ -9,7 +9,6 @@ from matplotlib.colors import ListedColormap
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torchvision.transforms as T
 import streamlit as st
 from skimage.segmentation import slic, mark_boundaries
@@ -25,6 +24,7 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from explainer import ImageExplainer, TextExplainer, TabularExplainer
 from model import Model
 from instance import Instance
+from utils.image import resize_crop, imagenet_preprocess
 
 OptionKey: TypeAlias = str
 OptionValue: TypeAlias = int | str | bool
@@ -35,38 +35,15 @@ class KernelSHAPImageExplainer(ImageExplainer):
         super().__init__(model, instance)
         logging.getLogger("shap").disabled = True
 
-    def set_options(
+    def set_explainer_options(
         self,
     ) -> Dict[OptionKey, OptionValue]:
-        options: Dict[OptionKey, OptionValue] = {}
-
-        label_generation = st.radio(
-            "Choose how the labels for explanation would be generated",
-            ["Automatic pseudolabel generation", "Manual label designation"],
-            horizontal=True,
-        )
-        if label_generation == "Manual label designation":
-            options["labels"] = [
-                int(i)
-                for i in st.text_input(
-                    "Labels you wish to be explained",
-                    help="Split each label with a comma",
-                ).split(",")
-            ]
-            options["top_labels"] = None
-        else:
-            options["top_labels"] = st.number_input(
-                "Number of labels (with the highest prediction probabilities) to produce explanations for",
-                min_value=1,
-                max_value=1000,
-                value=5,
-                step=1,
-            )
+        options = self.options
 
         options["nsamples"] = st.number_input(
             "**nsamples**: Maximum number of features present in the explanation",
             min_value=1,
-            value=100,
+            value=500,
             step=1,
         )
 
@@ -99,7 +76,7 @@ class KernelSHAPImageExplainer(ImageExplainer):
         else:
             targets = self.options["labels"]
 
-        original_img_arr = np.array(self.instance.preview())
+        original_img_arr = resize_crop(self.instance.image_array)
 
         # https://h1ros.github.io/posts/explain-the-prediction-for-imagenet-using-shap/
         def segment_image(img_arr: np.array) -> np.array:
@@ -112,17 +89,6 @@ class KernelSHAPImageExplainer(ImageExplainer):
             return segments_slic
 
         segments_slic = segment_image(original_img_arr)
-
-        def batcher(x: List[Image.Image]) -> torch.Tensor:
-            return torch.stack(
-                tuple(
-                    T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(
-                        T.ToTensor()(i)
-                    )
-                    for i in x
-                ),
-                dim=0,
-            )
 
         def mask_image(
             coalition: np.array, segmentation: np.array, image: np.array, background=None
@@ -139,17 +105,12 @@ class KernelSHAPImageExplainer(ImageExplainer):
                     if coalition[i, j] == 0:
                         out[i][segmentation == j, :] = background
 
-            pil_imgs = [Image.fromarray(np.uint8(out[i])) for i in range(out.shape[0])]
-            return batcher(pil_imgs)
+            return imagenet_preprocess(out)
 
         def predict_coalition(coalition: np.array) -> torch.Tensor:
             prediction = self.model.predict(
                 mask_image(coalition, segments_slic, original_img_arr).double()
             )
-
-            # Apply softmax if prediction is logits
-            if torch.mean(torch.abs(torch.sum(prediction, dim=1) - 1)) > 1e-5:
-                prediction = F.softmax(prediction, dim=1)
 
             return prediction.cpu().detach().numpy()
 
