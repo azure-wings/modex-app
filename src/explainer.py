@@ -116,6 +116,9 @@ class TextExplainerFactory(ExplainerFactory):
     def create_lime_explainer(self) -> LIMETextExplainer:
         return LIMETextExplainer
 
+    def create_kernelshap_explainer(self) -> None:
+        raise ValueError("Text explanation is not supported for KernelSHAP method")
+
 
 class TabularExplainerFactory(ExplainerFactory):
     def create_lrp_explainer(self) -> None:
@@ -123,6 +126,9 @@ class TabularExplainerFactory(ExplainerFactory):
 
     def create_lime_explainer(self) -> LIMETabularExplainer:
         return LIMETabularExplainer
+
+    def create_kernelshap_explainer(self) -> None:
+        raise ValueError("Tabular explanation is not supported for KernelSHAP method")
 
 
 def create_explainer(explainer_type: str, method: str) -> Explainer:
