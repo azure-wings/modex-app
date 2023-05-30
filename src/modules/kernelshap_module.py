@@ -41,9 +41,9 @@ class KernelSHAPImageExplainer(ImageExplainer):
         options = self.options
 
         options["nsamples"] = st.number_input(
-            "**nsamples**: Maximum number of features present in the explanation",
+            "**nsamples**: Number of times to re-evaluate the model when explaining each prediction.",
             min_value=1,
-            value=500,
+            value=2048,
             step=1,
         )
 
@@ -127,7 +127,7 @@ class KernelSHAPImageExplainer(ImageExplainer):
             warnings.simplefilter("ignore")
             shap_values: np.array = explainer.shap_values(
                 np.ones((1, self.options["n_segments"])), nsamples=self.options["nsamples"]
-            )
+            )  # Shape:
 
         # Get the original seismic colormap
         cmap_data = plt.cm.seismic_r(np.arange(plt.cm.seismic_r.N))
@@ -137,7 +137,7 @@ class KernelSHAPImageExplainer(ImageExplainer):
         seismic_g = ListedColormap(cmap_data)
 
         # For colourmap normalisation
-        max_val = np.max([np.max(np.abs(shap_values[i][:, :-1])) for i in range(len(shap_values))])
+        max_val = np.max([np.max(np.abs(shap_values[i])) for i in range(len(shap_values))])
 
         exp_label_list = [None] * len(targets)
 
@@ -148,21 +148,10 @@ class KernelSHAPImageExplainer(ImageExplainer):
                     mark_boundaries(original_img_arr / 255, segments_slic, color=(1, 1, 1)) * 255
                 ).astype(np.uint8)
             ).convert("RGBA")
+
             shap_colormap = seismic_g(plt.Normalize(vmin=-max_val, vmax=max_val)(m)) * 255
-
-            # Set white colormaps transparent, and vivid colormaps opaque
-            avg_brightness = np.sum(shap_colormap[:, :, :3], axis=2) / 3
-            # Modify the alpha channel based on the brightness of each pixel
-            high_brightness_all_channels = np.all(shap_colormap[:, :, :3] > 250, axis=2)
-            shap_colormap[high_brightness_all_channels, 3] = 0
-
-            high_brightness_some_channels = (
-                np.any(shap_colormap[:, :, :3] > 127, axis=2) & ~high_brightness_all_channels
-            )
-            shap_colormap[high_brightness_some_channels, 3] = (
-                0.5 + 0.5 * np.tanh(30 - 31 * avg_brightness[high_brightness_some_channels] / 255)
-            ) * 255
-            shap_colormap[:, :, 3] = np.clip(shap_colormap[:, :, 3], 0, 200)
+            f = lambda x: np.clip(255 * (1 - 0.8 * np.exp(-((x / np.std(x)) ** 2))), 0, 200)
+            shap_colormap[:, :, 3] = f(m)
 
             shap_colormap = Image.fromarray(shap_colormap.astype(np.uint8)).convert("RGBA")
             background.paste(shap_colormap, (0, 0), shap_colormap)
