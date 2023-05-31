@@ -11,7 +11,7 @@ import torch
 from instance import Instance, create_instance, get_instance_type
 from model import Model
 from explainer import Explainer, create_explainer
-from utils.image import resize_crop, get_imagenet_classname
+from utils.image import get_imagenet_classname
 
 
 def init_session_state() -> None:
@@ -130,7 +130,7 @@ def show_explanation() -> None:
 
     outputs = st.columns(2)
     outputs[0].write(f'**Original {get_instance_type(st.session_state["instance"])}**')
-    outputs[0].image(resize_crop(st.session_state["instance"].image_array), use_column_width=True)
+    outputs[0].image(st.session_state["instance"].preview(), use_column_width=True)
 
     outputs[1].write("**Explanation**")
     outputs[1].image(
@@ -198,7 +198,7 @@ def upload_page() -> bool:
             st.session_state["instance"] = create_instance(instance_type)(
                 instance_file, instance_target
             )
-            preview = resize_crop(st.session_state["instance"].image_array)
+            preview = st.session_state["instance"].preview()
 
             instance_expander.image(preview, caption="Input Instance Preview")
             st.session_state["instance_validity"] = True
@@ -222,7 +222,7 @@ def explain_page() -> None:
         st.error("Please review the model checkpoint and the input instance :no_entry_sign:")
         return
 
-    method = st.selectbox("Explanation Tool", ["LRP", "LIME", "KernelSHAP"])
+    method = st.selectbox("Explanation Tool", ["LRP", "LIME", "KernelSHAP", "PartitionSHAP"])
     st.session_state["explainer"] = create_explainer(
         get_instance_type(st.session_state["instance"]), method
     )()(st.session_state["model"], st.session_state["instance"])

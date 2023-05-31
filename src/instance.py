@@ -8,13 +8,17 @@ import torchvision.transforms as T
 import PIL
 from PIL.Image import Image
 
-from utils.image import imagenet_preprocess
+from utils.image import resize_crop, imagenet_preprocess
 
 
 class Instance(ABC):
     def __init__(self, data: Any, target: int) -> None:
         self.data = data
         self.target = target
+
+    @abstractmethod
+    def preview(self) -> Any:
+        pass
 
     @abstractmethod
     def preprocess(self) -> Any:
@@ -29,6 +33,9 @@ class ImageInstance(Instance):
     def load_as_nparray(self) -> Image:
         img_arr = np.array(PIL.Image.open(self.data))
         return img_arr
+
+    def preview(self) -> np.array:
+        return resize_crop(self.image_array)
 
     def preprocess(self) -> torch.Tensor:
         return imagenet_preprocess(self.image_array)
