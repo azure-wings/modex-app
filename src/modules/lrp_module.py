@@ -84,9 +84,7 @@ class LRPImageExplainer(ImageExplainer):
         return options
 
     def explain(self) -> List[Image.Image]:
-        instance_preprocessed = (
-            imagenet_preprocess(self.instance.image_array).double().to(self.model.device)
-        )
+        instance_preprocessed = imagenet_preprocess(self.instance.image_array).to(self.model.device)
 
         if self.options["top_labels"]:
             _, targets = torch.topk(
@@ -125,8 +123,8 @@ class LRPImageExplainer(ImageExplainer):
         exp_label_list = [None] * len(targets)
         for i, target in enumerate(targets):
             _, attribution = attributor(
-                instance_preprocessed.double().to(self.model.device),
-                torch.eye(1000)[[target]].double().to(self.model.device),
+                instance_preprocessed.to(self.model.device),
+                torch.eye(1000)[[target]].to(self.model.device),
             )
             relevance = attribution.sum(1).cpu()
             exp_label_list[i] = (
