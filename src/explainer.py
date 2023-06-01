@@ -88,6 +88,10 @@ class ExplainerFactory(ABC):
     def create_kernelshap_explainer(self) -> Explainer:
         pass
 
+    @abstractmethod
+    def create_partitionshap_explainer(self) -> Explainer:
+        pass
+
 
 from modules.lrp_module import LRPImageExplainer
 from modules.lime_module import (
@@ -96,6 +100,7 @@ from modules.lime_module import (
     LIMETabularExplainer,
 )
 from modules.kernelshap_module import KernelSHAPImageExplainer
+from modules.partitionshap_module import PartitionSHAPImageExplainer
 
 
 class ImageExplainerFactory(ExplainerFactory):
@@ -108,6 +113,9 @@ class ImageExplainerFactory(ExplainerFactory):
     def create_kernelshap_explainer(self) -> KernelSHAPImageExplainer:
         return KernelSHAPImageExplainer
 
+    def create_partitionshap_explainer(self) -> PartitionSHAPImageExplainer:
+        return PartitionSHAPImageExplainer
+
 
 class TextExplainerFactory(ExplainerFactory):
     def create_lrp_explainer(self) -> None:
@@ -117,7 +125,10 @@ class TextExplainerFactory(ExplainerFactory):
         return LIMETextExplainer
 
     def create_kernelshap_explainer(self) -> None:
-        raise ValueError("Text explanation is not supported for KernelSHAP method")
+        raise NotImplementedError()
+
+    def create_partitionshap_explainer(self) -> None:
+        raise NotImplementedError()
 
 
 class TabularExplainerFactory(ExplainerFactory):
@@ -128,7 +139,10 @@ class TabularExplainerFactory(ExplainerFactory):
         return LIMETabularExplainer
 
     def create_kernelshap_explainer(self) -> None:
-        raise ValueError("Tabular explanation is not supported for KernelSHAP method")
+        raise NotImplementedError()
+
+    def create_partitionshap_explainer(self) -> None:
+        raise NotImplementedError()
 
 
 def create_explainer(explainer_type: str, method: str) -> Explainer:
@@ -138,6 +152,7 @@ def create_explainer(explainer_type: str, method: str) -> Explainer:
         ("Text", "LIME"): TextExplainerFactory().create_lime_explainer,
         ("Tabular", "LIME"): TabularExplainerFactory().create_lime_explainer,
         ("Image", "KernelSHAP"): ImageExplainerFactory().create_kernelshap_explainer,
+        ("Image", "PartitionSHAP"): ImageExplainerFactory().create_partitionshap_explainer,
     }
 
     creator = creator_map.get((explainer_type, method))
