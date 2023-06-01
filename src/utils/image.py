@@ -83,8 +83,8 @@ def imagenet_preprocess(image: np.array) -> torch.Tensor:
     resize_crop_if_necessary = lambda x: x if x.shape[-2] == x.shape[-3] == 224 else resize_crop(x)
     preprocess_transform = A.Compose(
         [
-            A.Normalize(),
             ToTensorV2(),
+            A.Normalize(),
         ]
     )
 
