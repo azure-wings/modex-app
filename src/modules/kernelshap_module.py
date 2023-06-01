@@ -110,7 +110,7 @@ class KernelSHAPImageExplainer(ImageExplainer):
         def predict_coalition(coalition: np.array) -> torch.Tensor:
             masked = mask_image(coalition, segments_slic, original_img_arr)
             masked_preprocessed = imagenet_preprocess(masked)
-            prediction = self.model.predict(masked_preprocessed.double())
+            prediction = self.model.predict(masked_preprocessed)
 
             return prediction.cpu().detach().numpy()
 
@@ -143,6 +143,8 @@ class KernelSHAPImageExplainer(ImageExplainer):
         exp_label_list = [None] * len(targets)
 
         for i, target in enumerate(targets):
+            print(f"{i}th target:   \t{target}")
+            print(f"SHAP value sum: \t{np.sum(shap_values[target])}")
             m = fill_segmentation(shap_values[target][0], segments_slic)
             background = Image.fromarray(
                 (
