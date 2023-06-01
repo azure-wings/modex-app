@@ -76,7 +76,7 @@ class KernelSHAPImageExplainer(ImageExplainer):
         else:
             targets = self.options["labels"]
 
-        original_img_arr = self.preview()
+        original_img_arr = self.instance.preview()
 
         # https://h1ros.github.io/posts/explain-the-prediction-for-imagenet-using-shap/
         def segment_image(img_arr: np.array) -> np.array:
@@ -105,12 +105,12 @@ class KernelSHAPImageExplainer(ImageExplainer):
                     if coalition[i, j] == 0:
                         out[i][segmentation == j, :] = background
 
-            return imagenet_preprocess(out)
+            return out
 
         def predict_coalition(coalition: np.array) -> torch.Tensor:
-            prediction = self.model.predict(
-                mask_image(coalition, segments_slic, original_img_arr).double()
-            )
+            masked = mask_image(coalition, segments_slic, original_img_arr)
+            masked_preprocessed = imagenet_preprocess(masked)
+            prediction = self.model.predict(masked_preprocessed.double())
 
             return prediction.cpu().detach().numpy()
 
