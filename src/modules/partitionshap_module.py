@@ -112,25 +112,25 @@ class PartitionSHAPImageExplainer(ImageExplainer):
 
         original_img_arr = self.instance.preview()
 
-        def predict_coalition(arr: np.array) -> np.array:
-            preprocessed = imagenet_preprocess(arr).double()
-            prediction = self.model.model(preprocessed)
+        def _predict(arr: np.array) -> np.array:
+            arr = arr.copy()
+            preprocessed = imagenet_preprocess(arr)
+            prediction = self.model.predict(preprocessed)
 
             return prediction.cpu().detach().numpy()
 
-        explainer = shap.PartitionExplainer(
-            predict_coalition, shap.maskers.Image(self.options["masker"], original_img_arr.shape)
-        )
+        masker = shap.maskers.Image(self.options["masker"], original_img_arr.shape)
+
+        explainer = shap.Explainer(_predict, masker)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             explanation = explainer(original_img_arr[np.newaxis, ...], **self.explainer_options)
 
         # List unpacking. Original explanation.values is a list of length 1
-        explanation.values = np.moveaxis(explanation.values[0], -1, 0)  # (1000, 224, 224, 3)
-        print(explanation.values.shape)
-
-        shap_values = [explanation.values[target, :, :, 0] for target in targets]
-        print(shap_values[0].shape)
+        explanation.values = explanation.values[0]
+        # Move axis: (224, 224, 3, 1000) -> (1000, 224, 224, 3)
+        explanation.values = np.moveaxis(explanation.values, -1, 0)
+        shap_values = [np.sum(explanation.values[target], axis=-1) for target in targets]
 
         # Get the original seismic colormap
         cmap_data = plt.cm.seismic_r(np.arange(plt.cm.seismic_r.N))
@@ -146,9 +146,7 @@ class PartitionSHAPImageExplainer(ImageExplainer):
         exp_label_list = [None] * len(targets)
 
         for i, target in enumerate(targets):
-            # print(f"{i}th target:   {target}")
-            # print(f"SHAP value sum: {np.sum(shap_values[i])}")
-            background = Image.fromarray(original_img_arr.astype(np.uint8) * 255).convert("RGBA")
+            background = Image.fromarray(original_img_arr.astype(np.uint8)).convert("RGBA")
 
             shap_colormap = (
                 seismic_g(plt.Normalize(vmin=-max_val, vmax=max_val)(shap_values[i])) * 255
