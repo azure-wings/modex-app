@@ -138,6 +138,7 @@ class KernelSHAPImageExplainer(ImageExplainer):
 
         # For colourmap normalisation
         max_val = np.max([np.max(np.abs(shap_values[i])) for i in range(len(shap_values))])
+        sigma = np.std(shap_values)
 
         exp_label_list = [None] * len(targets)
 
@@ -150,7 +151,7 @@ class KernelSHAPImageExplainer(ImageExplainer):
             ).convert("RGBA")
 
             shap_colormap = seismic_g(plt.Normalize(vmin=-max_val, vmax=max_val)(m)) * 255
-            f = lambda x: np.clip(255 * (1 - 0.8 * np.exp(-((x / np.std(x)) ** 2))), 0, 200)
+            f = lambda x: np.clip(255 * (1 - 0.8 * np.exp(-((x / sigma) ** 2))), 0, 200)
             shap_colormap[:, :, 3] = f(m)
 
             shap_colormap = Image.fromarray(shap_colormap.astype(np.uint8)).convert("RGBA")
