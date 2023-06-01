@@ -151,8 +151,8 @@ class KernelSHAPImageExplainer(ImageExplainer):
             ).convert("RGBA")
 
             shap_colormap = seismic_g(plt.Normalize(vmin=-max_val, vmax=max_val)(m)) * 255
-            f = lambda x: np.clip(255 * (1 - 0.8 * np.exp(-((x / sigma) ** 2))), 0, 200)
-            shap_colormap[:, :, 3] = f(m)
+            adjust_alpha = lambda x: np.clip(255 * (1 - 0.8 * np.exp(-((x / sigma) ** 2))), 0, 200)
+            shap_colormap[:, :, 3] = adjust_alpha(m)
 
             shap_colormap = Image.fromarray(shap_colormap.astype(np.uint8)).convert("RGBA")
             background.paste(shap_colormap, (0, 0), shap_colormap)
