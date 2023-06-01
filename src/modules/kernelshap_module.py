@@ -76,7 +76,7 @@ class KernelSHAPImageExplainer(ImageExplainer):
         else:
             targets = self.options["labels"]
 
-        original_img_arr = resize_crop(self.instance.image_array)
+        original_img_arr = self.preview()
 
         # https://h1ros.github.io/posts/explain-the-prediction-for-imagenet-using-shap/
         def segment_image(img_arr: np.array) -> np.array:
